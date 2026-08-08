@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Notario Digital Web3</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 30px; text-align: center; background-color: #f4f7f6; }
+        .box { background: white; border: 2px dashed #ccc; padding: 25px; margin: 20px auto; max-width: 500px; border-radius: 10px; box-shadow: 0px 4px 6px rgba(0,0,0,0.1); }
+        .box-verify { border: 2px solid #28a745; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 5px; transition: 0.3s; margin-top: 10px; }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #cccccc; cursor: not-allowed; }
+        .btn-green { background: #28a745; }
+        .btn-green:hover { background: #218838; }
+        h1 { color: #333; }
+        #statusMsg, #verifyResult { margin-top: 15px; font-weight: bold; word-break: break-all; }
+        a { color: #007bff; text-decoration: none; font-weight: bold; }
+        a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+
+    <h1>Notario Digital Criptográfico</h1>
+    <p>Registra y verifica la autenticidad de tus documentos en la Blockchain de Sepolia.</p>
+
+    <!-- Paso 1: Conectar Billetera -->
+    <button id="connectBtn">1. Conectar Billetera</button>
+    <p id="walletAddress" style="color: green; font-weight: bold;"></p>
+
+    <hr style="max-width: 550px; margin: 30px auto; border: 0.5px solid #ddd;">
+
+    <!-- Paso 2: Registrar Documento -->
+    <div class="box">
+        <h3>📝 Registrar Nuevo Documento</h3>
+        <input type="file" id="fileInput">
+        <br>
+        <button id="registerBtn" disabled>2. Registrar en Blockchain</button>
+        <p id="statusMsg"></p>
+    </div>
+
+    <!-- Paso 3: Verificar / Validar Documento -->
+    <div class="box box-verify">
+        <h3>🔍 Validar / Verificar Documento</h3>
+        <p style="font-size: 13px; color: #666;">Sube un archivo para comprobar si existe en la blockchain y si es auténtico.</p>
+        <input type="file" id="verifyFileInput">
+        <br>
+        <button id="verifyBtn" class="btn-green" disabled>3. Validar PDF</button>
+        <div id="verifyResult"></div>
+    </div>
+
+    <script>
+        const CONTRACT_ADDRESS = "0x547abE743cd2561FB13cE7BfabA31cD8EFF6b95f";
+
+        const CONTRACT_ABI = [
+            {
+                "anonymous": false,
+                "inputs": [
+                    { "indexed": false, "internalType": "string", "name": "hash", "type": "string" },
+                    { "indexed": false, "internalType": "address", "name": "propietario", "type": "address" },
+                    { "indexed": false, "internalType": "uint256", "name": "fecha", "type": "uint256" }
+                ],
+                "name": "DocumentoRegistrado",
+                "type": "event"
+            },
+            {
+                "inputs": [ { "internalType": "string", "name": "_hashDocumento", "type": "string" } ],
+                "name": "registrarDocumento",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [ { "internalType": "string", "name": "", "type": "string" } ],
+                "name": "registros",
+                "outputs": [
+                    { "internalType": "address", "name": "propietario", "type": "address" },
+                    { "internalType": "uint256", "name": "fecha", "type": "uint256" },
+                    { "internalType": "bool", "name": "estaRegistrado", "type": "bool" }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [ { "internalType": "string", "name": "_hashDocumento", "type": "string" } ],
+                "name": "verificarDocumento",
+                "outputs": [
+                    { "internalType": "address", "name": "", "type": "address" },
+                    { "internalType": "uint256", "name": "", "type": "uint256" },
+                    { "internalType": "bool", "name": "", "type": "bool" }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            }
+        ];
+
+        let provider, signer, contract;
+
+        // Función auxiliar para calcular Hash SHA-256
+        async function calcularHash(file) {
+            const arrayBuffer = await file.arrayBuffer();
+            const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        // 1. CONECTAR BILLETERA
+        document.getElementById("connectBtn").addEventListener("click", async () => {
+            if (window.ethereum) {
+                try {
+                    await window.ethereum.request({ method: "eth_requestAccounts" });
+                    provider = new ethers.providers.Web3Provider(window.ethereum);
+                    signer = provider.getSigner();
+                    const address = await signer.getAddress();
+
+                    document.getElementById("walletAddress").innerText = "✅ Billetera conectada: " + address;
+                    contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+
+                    // Habilitar botones
+                    document.getElementById("registerBtn").disabled = false;
+                    document.getElementById("verifyBtn").disabled = false;
+                } catch (error) {
+                    console.error(error);
+                    alert("Error al conectar la billetera.");
+                }
+            } else {
+                alert("Por favor instala MetaMask.");
+            }
+        });
+
+        // 2. REGISTRAR DOCUMENTO
+        document.getElementById("registerBtn").addEventListener("click", async () => {
+            const file = document.getElementById("fileInput").files[0];
+            if (!file) return alert("Por favor selecciona un archivo.");
+
+            document.getElementById("statusMsg").style.color = "#007bff";
+            document.getElementById("statusMsg").innerText = "Calculando Hash SHA-256...";
+
+            try {
+                const fileHash = await calcularHash(file);
+                document.getElementById("statusMsg").innerText = `Hash: ${fileHash.substring(0, 15)}... \nConfirma la transacción en MetaMask.`;
+
+                const tx = await contract.registrarDocumento(fileHash);
+                document.getElementById("statusMsg").innerText = "Esperando confirmación en la red Sepolia...";
+
+                await tx.wait();
+
+                // Mostramos mensaje de éxito Y el enlace con el TxHash
+                document.getElementById("statusMsg").style.color = "green";
+                document.getElementById("statusMsg").innerHTML = `
+                    ¡Éxito! 🎉 Documento registrado en la Blockchain.<br><br>
+                    <strong>Hash de Transacción (TxHash):</strong><br>
+                    <a href="https://sepolia.etherscan.io/tx/${tx.hash}" target="_blank">${tx.hash}</a>
+                `;
+            } catch (error) {
+                console.error(error);
+                document.getElementById("statusMsg").style.color = "red";
+                document.getElementById("statusMsg").innerText = "Error o transacción cancelada.";
+            }
+        });
+
+        // 3. VERIFICAR / VALIDAR DOCUMENTO
+        document.getElementById("verifyBtn").addEventListener("click", async () => {
+            const file = document.getElementById("verifyFileInput").files[0];
+            if (!file) return alert("Selecciona un archivo para verificar.");
+
+            document.getElementById("verifyResult").style.color = "#007bff";
+            document.getElementById("verifyResult").innerText = "Consultando a la Blockchain...";
+
+            try {
+                const fileHash = await calcularHash(file);
+
+                // Consulta gratuita a la blockchain (no gasta gas)
+                const resultado = await contract.verificarDocumento(fileHash);
+                const propietario = resultado[0];
+                const fechaTimestamp = resultado[1].toNumber();
+                const estaRegistrado = resultado[2];
+
+                if (estaRegistrado) {
+                    const fechaFormateada = new Date(fechaTimestamp * 1000).toLocaleString();
+                    document.getElementById("verifyResult").style.color = "green";
+                    document.getElementById("verifyResult").innerHTML = `
+                        ✅ <strong>DOCUMENTO VÁLIDO Y AUTÉNTICO</strong><br><br>
+                        <strong>Registrado por:</strong> ${propietario}<br>
+                        <strong>Fecha de registro:</strong> ${fechaFormateada}<br>
+                        <strong>Hash SHA-256:</strong> ${fileHash}...
+                    `;
+                } else {
+                    document.getElementById("verifyResult").style.color = "red";
+                    document.getElementById("verifyResult").innerHTML = `
+                        ❌ <strong>DOCUMENTO NO ENCONTRADO O ALTERADO</strong><br><br>
+                        Este archivo nunca ha sido registrado en la blockchain o sufrió modificaciones en su contenido.
+                    `;
+                }
+            } catch (error) {
+                console.error(error);
+                document.getElementById("verifyResult").style.color = "red";
+                document.getElementById("verifyResult").innerText = "Error al consultar el contrato.";
+            }
+        });
+    </script>
+</body>
+</html>

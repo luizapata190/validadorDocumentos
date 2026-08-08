@@ -1,0 +1,9 @@
+{
+    "id_Anterior": "0x7b8c9d...",
+    "From": "0xA1B2C3D4...",  // La billetera del que paga (Nadie sabe que es John)
+    "To": "0xE5F6G7H8...",    // La billetera del que cobra (Nadie sabe que es Jane)
+    "Monto": 1000,
+    "Moneda": "USDC",
+    "Data_Hash": "f6dd3d410db44c9b1397850dfd90231aaebbb49cb740d0233ee18a7a505bdf97", // La huella digital del contrato
+    "Mi_Id": "0x9a8b7c..."
+}
