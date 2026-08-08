@@ -1,1 +1,44 @@
-#Git Ignore
+# ==========================================
+# 📦 Dependencias y Paquetes de Node
+# ==========================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ==========================================
+# 🔨 Archivos de Compilación / Binarios (Generados)
+# ==========================================
+# Compilados de NEAR
+**/contracts/build/
+*.wasm
+
+# Compilados de EVM / Hardhat / Foundry (para el futuro)
+artifacts/
+cache/
+coverage/
+
+# Entornos de desarrollo local temporales de NEAR
+neardev/
+
+# ==========================================
+# 🔐 Claves Privadas y Variables de Entorno (¡SECRETO!)
+# ==========================================
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+secrets.json
+id_ed25519*
+
+# ==========================================
+# 💻 Sistema Operativo y Editor de Código
+# ==========================================
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.tmp

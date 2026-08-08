@@ -1,0 +1,13 @@
+{
+  "name": "notario-near-contract",
+  "version": "1.0.0",
+  "description": "Smart Contract para Notaría Digital en NEAR Protocol",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "build": "near-sdk-js build index.js build/verificador.wasm"
+  },
+  "dependencies": {
+    "near-sdk-js": "^2.0.0"
+  }
+}
