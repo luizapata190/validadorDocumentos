@@ -34,6 +34,11 @@
             color: white;
             margin-top: 10px;
             width: 100%;
+            transition: opacity 0.2s;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
         }
 
         .btn-green {
@@ -42,6 +47,11 @@
 
         .btn-blue {
             background-color: #007bff;
+        }
+
+        .btn-gray {
+            background-color: #6c757d;
+            margin-top: 25px;
         }
 
         .card {
@@ -95,10 +105,13 @@
             <button id="btnVer" class="btn btn-blue">Validar Documento</button>
             <div id="statusVer" class="status-box"></div>
         </div>
+
+        <!-- Botón Limpiar -->
+        <button id="btnReset" class="btn btn-gray">🧹 Limpiar Formularios</button>
     </div>
 
     <script>
-        // URL de tu Backend en Linux (Si usas puertos reenviados, déjalo en localhost:3000)
+        // URL de tu Backend
         const BACKEND_URL = "http://localhost:3000/api";
 
         // Función para calcular SHA-256 localmente
@@ -111,9 +124,10 @@
         // REGISTRAR
         document.getElementById('btnReg').addEventListener('click', async () => {
             const file = document.getElementById('regFile').files[0];
-            if (!file) return alert("Sube un archivo.");
+            if (!file) return alert("Por favor selecciona un archivo.");
 
-            document.getElementById('statusReg').innerText = "Enviando al servidor Linux...";
+            // 🔹 Cambio de texto solicitado
+            document.getElementById('statusReg').innerText = "⏳ Enviando documento a firmar...";
             document.getElementById('statusReg').style.color = "#007bff";
 
             const hash = await calcularHash(file);
@@ -141,9 +155,9 @@
         // VERIFICAR
         document.getElementById('btnVer').addEventListener('click', async () => {
             const file = document.getElementById('verFile').files[0];
-            if (!file) return alert("Sube un archivo.");
+            if (!file) return alert("Por favor selecciona un archivo.");
 
-            document.getElementById('statusVer').innerText = "Consultando al servidor...";
+            document.getElementById('statusVer').innerText = "⏳ Consultando en la Blockchain...";
             document.getElementById('statusVer').style.color = "#007bff";
 
             const hash = await calcularHash(file);
@@ -154,7 +168,7 @@
 
                 if (data.success && data.data.estaRegistrado) {
                     document.getElementById('statusVer').style.color = "green";
-                    document.getElementById('statusVer').innerHTML = `✅ <b>DOCUMENTO AUTÉNTICO</b><br>Hash: ${hash}`;
+                    document.getElementById('statusVer').innerHTML = `✅ <b>DOCUMENTO AUTÉNTICO</b><br>Hash: <code>${hash}</code>`;
                 } else {
                     document.getElementById('statusVer').style.color = "red";
                     document.getElementById('statusVer').innerText = "❌ Documento NO registrado.";
@@ -163,6 +177,17 @@
                 document.getElementById('statusVer').style.color = "red";
                 document.getElementById('statusVer').innerText = "Error: " + e.message;
             }
+        });
+
+        // 🔹 Lógica del Botón Limpiar
+        document.getElementById('btnReset').addEventListener('click', () => {
+            // Borrar archivos seleccionados
+            document.getElementById('regFile').value = "";
+            document.getElementById('verFile').value = "";
+
+            // Borrar mensajes de estado
+            document.getElementById('statusReg').innerHTML = "";
+            document.getElementById('statusVer').innerHTML = "";
         });
     </script>
 </body>
