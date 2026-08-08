@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notario Digital NEAR</title>
+    <!-- SDK Oficial de NEAR Protocol -->
+    <script src="https://cdn.jsdelivr.net/npm/near-api-js@2.1.4/dist/near-api-js.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f9f5;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            padding: 30px 15px;
+            margin: 0;
+        }
+
+        .container {
+            max-width: 650px;
+            width: 100%;
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 5px;
+            color: #111827;
+        }
+
+        p.subtitle {
+            color: #6b7280;
+            margin-bottom: 25px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-green {
+            background-color: #00c08b;
+            color: white;
+        }
+
+        .btn-green:hover {
+            background-color: #00a376;
+        }
+
+        .btn-blue {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .btn-blue:hover {
+            background-color: #0056b3;
+        }
+
+        .btn:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        .card {
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .card-register {
+            border: 2px dashed #00c08b;
+            background-color: #fafdfb;
+        }
+
+        .card-verify {
+            border: 2px solid #007bff;
+            background-color: #f8fbff;
+        }
+
+        input[type="file"] {
+            margin: 15px 0;
+            display: block;
+            width: 100%;
+        }
+
+        .status-box {
+            margin-top: 15px;
+            font-weight: 500;
+            word-break: break-all;
+        }
+
+        .user-badge {
+            background-color: #e6f9f3;
+            color: #00a376;
+            padding: 8px 16px;
+            border-radius: 20px;
+            display: inline-block;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <h1>Notario Digital NEAR 🟢</h1>
+        <p class="subtitle">Registra y verifica tus documentos en la red NEAR Protocol.</p>
+
+        <!-- Estado de Autenticación -->
+        <div id="authContainer">
+            <button id="connectBtn" class="btn btn-green">1. Conectar NEAR Wallet</button>
+        </div>
+
+        <!-- Módulo 1: Registrar Documento -->
+        <div class="card card-register">
+            <h3>📝 Registrar Documento en NEAR</h3>
+            <input type="file" id="registerFileInput">
+            <button id="registerBtn" class="btn btn-green" disabled>2. Registrar en NEAR Blockchain</button>
+            <div id="registerStatus" class="status-box"></div>
+        </div>
+
+        <!-- Módulo 2: Validar Documento -->
+        <div class="card card-verify">
+            <h3>🔍 Validar Documento</h3>
+            <input type="file" id="verifyFileInput">
+            <button id="verifyBtn" class="btn btn-blue">3. Validar PDF en NEAR</button>
+            <div id="verifyStatus" class="status-box"></div>
+        </div>
+    </div>
+
+    <script>
+        const CONTRACT_ID = "luinos.testnet";
+
+        const nearConfig = {
+            networkId: "testnet",
+            keyStore: new nearApi.keyStores.BrowserLocalStorageKeyStore(),
+            nodeUrl: "https://rpc.testnet.near.org",
+            walletUrl: "https://testnet.mynearwallet.com",
+            helperUrl: "https://helper.testnet.near.org",
+            explorerUrl: "https://testnet.nearblocks.io"
+        };
+
+        let near, wallet, account;
+
+        // Función para calcular SHA-256 del archivo
+        async function calcularHash(file) {
+            const arrayBuffer = await file.arrayBuffer();
+            const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        // Inicializar Conexión a NEAR Protocol
+        async function initNEAR() {
+            near = await nearApi.connect(nearConfig);
+            wallet = new nearApi.WalletConnection(near, "notario-app");
+
+            const authContainer = document.getElementById("authContainer");
+            const registerBtn = document.getElementById("registerBtn");
+
+            if (wallet.isSignedIn()) {
+                account = wallet.account();
+                authContainer.innerHTML = `
+                <div class="user-badge">✅ Cuenta NEAR Conectada: ${wallet.getAccountId()}</div>
+                <br>
+                <button id="logoutBtn" class="btn" style="background:#dc3545; color:white;">Cerrar Sesión</button>
+            `;
+                registerBtn.disabled = false;
+
+                document.getElementById("logoutBtn").addEventListener("click", () => {
+                    wallet.signOut();
+                    location.reload();
+                });
+            } else {
+                document.getElementById("connectBtn").addEventListener("click", () => {
+                    wallet.requestSignIn({
+                        contractId: CONTRACT_ID,
+                        // Aseguramos que la wallet regrese exactamente a esta pestaña
+                        successUrl: window.location.href,
+                        failureUrl: window.location.href
+                    });
+                });
+            }
+        }
+
+        // Evento: Registrar Documento
+        document.getElementById("registerBtn").addEventListener("click", async () => {
+            const fileInput = document.getElementById("registerFileInput");
+            const statusBox = document.getElementById("registerStatus");
+
+            if (!fileInput.files[0]) return alert("Por favor selecciona un archivo.");
+
+            statusBox.style.color = "#007bff";
+            statusBox.innerText = "Calculando Hash SHA-256...";
+
+            try {
+                const hash = await calcularHash(fileInput.files[0]);
+                statusBox.innerText = "Firmando transacción en segundo plano...";
+
+                // Llamada directa al contrato enviando la transacción firmada
+                await wallet.account().functionCall({
+                    contractId: CONTRACT_ID,
+                    methodName: "registrar_documento",
+                    args: { hashDocumento: hash },
+                    gas: "300000000000000"
+                });
+
+                statusBox.style.color = "green";
+                statusBox.innerText = "¡Documento registrado con éxito en NEAR!";
+            } catch (error) {
+                console.error(error);
+                statusBox.style.color = "red";
+                statusBox.innerText = "Error: " + (error.message || error);
+            }
+        });
+
+        // Evento: Verificar Documento (No requiere login previo)
+        document.getElementById("verifyBtn").addEventListener("click", async () => {
+            const fileInput = document.getElementById("verifyFileInput");
+            const statusBox = document.getElementById("verifyStatus");
+
+            if (!fileInput.files[0]) return alert("Por favor selecciona un archivo.");
+
+            statusBox.style.color = "#007bff";
+            statusBox.innerText = "Calculando Hash y consultando Blockchain...";
+
+            try {
+                const hash = await calcularHash(fileInput.files[0]);
+
+                // Consulta Read-Only directa a la red usando el Provider RPC
+                const response = await near.connection.provider.query({
+                    request_type: "call_function",
+                    finality: "optimistic",
+                    account_id: CONTRACT_ID,
+                    method_name: "verificar_documento",
+                    args_base64: btoa(JSON.stringify({ hashDocumento: hash }))
+                });
+
+                const resultString = new TextDecoder().decode(Uint8Array.from(response.result));
+                const data = JSON.parse(resultString);
+
+                if (data.estaRegistrado) {
+                    statusBox.style.color = "green";
+                    statusBox.innerHTML = `
+                    ✅ <b>DOCUMENTO AUTÉNTICO</b><br>
+                    <b>Hash:</b> <code>${hash}</code><br>
+                    <b>Registrado por:</b> ${data.propietario || CONTRACT_ID}
+                `;
+                } else {
+                    statusBox.style.color = "#dc3545";
+                    statusBox.innerHTML = `
+                    ❌ <b>DOCUMENTO NO REGISTRADO</b><br>
+                    Este archivo no existe en la red NEAR.
+                `;
+                }
+            } catch (error) {
+                console.error(error);
+                statusBox.style.color = "red";
+                statusBox.innerText = "Error al consultarlo: " + (error.message || error);
+            }
+        });
+
+        // Arrancar la App
+        initNEAR();
+    </script>
+
+</body>
+
+</html>
