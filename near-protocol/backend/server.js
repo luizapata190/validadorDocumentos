@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const nearAPI = require('near-api-js');
@@ -8,18 +10,21 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Configuración de NEAR
-const ACCOUNT_ID = 'luinos.testnet';
-const CREDENTIALS_DIR = path.join(os.homedir(), '.near-credentials');
+// --- Configuración (env con valores por defecto = comportamiento original) ---
+const PORT = process.env.PORT || 3000;
+const ACCOUNT_ID = process.env.NEAR_ACCOUNT_ID || 'luinos.testnet';
+const NETWORK_ID = process.env.NEAR_NETWORK_ID || 'testnet';
+const NODE_URL = process.env.NEAR_NODE_URL || 'https://rpc.testnet.near.org';
+const CREDENTIALS_DIR = process.env.NEAR_CREDENTIALS_DIR || path.join(os.homedir(), '.near-credentials');
 
 async function initNear() {
     console.log("   -> 🔑 Inicializando Keystore local...");
     const keyStore = new nearAPI.keyStores.UnencryptedFileSystemKeyStore(CREDENTIALS_DIR);
-    console.log("   -> 🌐 Conectando al nodo RPC oficial de NEAR...");
+    console.log(`   -> 🌐 Conectando al nodo RPC de NEAR (${NETWORK_ID})...`);
     return await nearAPI.connect({
-        networkId: 'testnet',
+        networkId: NETWORK_ID,
         keyStore: keyStore,
-        nodeUrl: 'https://rpc.testnet.near.org'
+        nodeUrl: NODE_URL
     });
 }
 
@@ -108,7 +113,7 @@ app.get('/api/verificar/:hash', async (req, res) => {
     }
 });
 
-const PORT = 3000;
 app.listen(PORT, () => {
-    console.log(`\n✅ Backend Notario NEAR (Con Filtro de Errores) escuchando en puerto ${PORT}\n`);
+    console.log(`\n✅ Backend Notario NEAR escuchando en puerto ${PORT}`);
+    console.log(`   Cuenta: ${ACCOUNT_ID} · Red: ${NETWORK_ID}\n`);
 });
